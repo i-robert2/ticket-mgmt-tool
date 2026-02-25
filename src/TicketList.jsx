@@ -4,6 +4,7 @@ import { STATUSES, STATUS_COLORS } from './ticketUtils.js';
 function TicketCard({ ticket, onDeleteTicket, onUpdateStatus, onUpdateTicket }) {
   const [noteExpanded, setNoteExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editingDate, setEditingDate] = useState(false);
 
   const hasNote = ticket.hasNote;
 
@@ -50,9 +51,42 @@ function TicketCard({ ticket, onDeleteTicket, onUpdateStatus, onUpdateTicket }) 
           </span>
         </div>
         <div className="ticket-date-row">
-          <span className="ticket-date">
-            Last Modified: {new Date(ticket.lastModified).toLocaleString()}
-          </span>
+          {editingDate ? (
+            <span className="ticket-date ticket-date-editing">
+              Last Modified:&nbsp;
+              <input
+                type="datetime-local"
+                className="date-edit-input"
+                defaultValue={new Date(new Date(ticket.lastModified).getTime() - new Date(ticket.lastModified).getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                autoFocus
+                onBlur={(e) => {
+                  if (e.target.value) {
+                    onUpdateTicket(ticket.id, { lastModified: new Date(e.target.value).toISOString() });
+                  }
+                  setEditingDate(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (e.target.value) {
+                      onUpdateTicket(ticket.id, { lastModified: new Date(e.target.value).toISOString() });
+                    }
+                    setEditingDate(false);
+                  } else if (e.key === 'Escape') {
+                    setEditingDate(false);
+                  }
+                }}
+              />
+            </span>
+          ) : (
+            <span
+              className="ticket-date ticket-date-clickable"
+              onClick={() => setEditingDate(true)}
+              title="Click to edit last modified date"
+            >
+              Last Modified: {new Date(ticket.lastModified).toLocaleString()}
+              <span className="date-edit-icon">✎</span>
+            </span>
+          )}
           <div className="ticket-actions-right">
             {!hasNote && (
               <button

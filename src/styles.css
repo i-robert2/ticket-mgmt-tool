@@ -558,6 +558,51 @@ body {
   color: var(--text-muted);
 }
 
+.ticket-date-clickable {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 4px;
+  padding: 2px 4px;
+  transition: background 0.2s;
+}
+
+.ticket-date-clickable:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.date-edit-icon {
+  font-size: 0.7rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.ticket-date-clickable:hover .date-edit-icon {
+  opacity: 0.7;
+}
+
+.ticket-date-editing {
+  display: inline-flex;
+  align-items: center;
+}
+
+.date-edit-input {
+  background: var(--bg-tertiary, #2a2a3e);
+  color: var(--text-primary, #e0e0e0);
+  border: 1px solid var(--accent, #7c5cbf);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  outline: none;
+  color-scheme: dark;
+}
+
+.date-edit-input:focus {
+  box-shadow: 0 0 0 2px rgba(124, 92, 191, 0.3);
+}
+
 .btn-delete {
   background: none;
   border: 1px solid var(--border);
