@@ -3,6 +3,7 @@ import { STATUSES, STATUS_COLORS } from './ticketUtils.js';
 
 function TicketCard({ ticket, onDeleteTicket, onUpdateStatus, onUpdateTicket }) {
   const [noteExpanded, setNoteExpanded] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const hasNote = ticket.hasNote;
 
@@ -64,7 +65,7 @@ function TicketCard({ ticket, onDeleteTicket, onUpdateStatus, onUpdateTicket }) 
             )}
             <button
               className="btn-delete"
-              onClick={() => onDeleteTicket(ticket.id)}
+              onClick={() => setConfirmDelete(true)}
               title="Delete ticket"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -77,6 +78,18 @@ function TicketCard({ ticket, onDeleteTicket, onUpdateStatus, onUpdateTicket }) 
             </button>
           </div>
         </div>
+
+        {confirmDelete && (
+          <div className="confirm-delete-overlay">
+            <div className="confirm-delete-modal">
+              <p>Are you sure you want to delete ticket <strong>#{ticket.ticketNumber}</strong>?</p>
+              <div className="confirm-delete-actions">
+                <button className="btn-confirm-yes" onClick={() => onDeleteTicket(ticket.id)}>Yes, delete</button>
+                <button className="btn-confirm-no" onClick={() => setConfirmDelete(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {hasNote && (
           <div className="ticket-note-section">
