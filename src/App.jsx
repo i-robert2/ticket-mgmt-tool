@@ -2,9 +2,80 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import TicketForm from './TicketForm.jsx';
 import TicketList from './TicketList.jsx';
 import NotificationsPanel from './NotificationsPanel.jsx';
-import { computeWarningEscalation, fetchBucharestTime } from './ticketUtils.js';
+import { STATUSES, STATUS_COLORS, computeWarningEscalation, fetchBucharestTime } from './ticketUtils.js';
 
 const EMPTY_DATA = { eu: [], global: [], notifications: [] };
+
+function scrollToTicket(ticketId) {
+  const el = document.getElementById(`ticket-${ticketId}`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('ticket-highlight');
+  setTimeout(() => el.classList.remove('ticket-highlight'), 1500);
+}
+
+function SearchOverlay({ query, setQuery, euTickets, globalTickets, onClose }) {
+  const inputRef = React.useRef(null);
+  React.useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const q = query.toLowerCase().trim();
+  const matchTicket = (t) => {
+    if (!q) return false;
+    return (
+      t.ticketNumber.toLowerCase().includes(q) ||
+      t.title.toLowerCase().includes(q) ||
+      t.label.toLowerCase().includes(q)
+    );
+  };
+
+  const euResults = euTickets.filter(matchTicket).map((t) => ({ ...t, region: 'EU' }));
+  const globalResults = globalTickets.filter(matchTicket).map((t) => ({ ...t, region: 'Global' }));
+  const results = [...euResults, ...globalResults];
+
+  return (
+    <div className="search-overlay">
+      <div className="search-backdrop" onClick={onClose} />
+      <div className="search-panel">
+        <div className="search-panel-header">
+          <input
+            ref={inputRef}
+            type="text"
+            className="search-input"
+            placeholder="Search by ticket number, title, or label..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <button className="search-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="search-results">
+          {!q && <p className="search-hint">Start typing to search across all tickets.</p>}
+          {q && results.length === 0 && <p className="search-hint">No tickets match "{query}".</p>}
+          {results.map((t) => (
+            <div
+              key={t.id}
+              className="search-result-card"
+              onClick={() => { onClose(); setTimeout(() => scrollToTicket(t.id), 100); }}
+            >
+              <div className="search-result-top">
+                <span className="ticket-number">#{t.ticketNumber}</span>
+                <span className="search-region-badge">{t.region}</span>
+                <span
+                  className="search-status-badge"
+                  style={{ backgroundColor: STATUS_COLORS[t.status] || '#999' }}
+                >{t.status}</span>
+              </div>
+              <div className="search-result-title">{t.title}</div>
+              <div className="search-result-meta">
+                <span className="ticket-label">{t.label}</span>
+                <span className="ticket-severity" data-severity={t.severity}>{t.severity}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Helpers for Electron vs browser
 const isElectron = typeof window !== 'undefined' && window.electronAPI;
@@ -31,8 +102,12 @@ export default function App() {
   const [globalTickets, setGlobalTickets] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showFormForRegion, setShowFormForRegion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bucharestTime, setBucharestTime] = useState(null);
+  const [liveClock, setLiveClock] = useState(new Date());
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const initialized = useRef(false);
 
   // ─── Load persisted data & run escalation check on startup ───
@@ -89,6 +164,14 @@ export default function App() {
       }
       setLoading(false);
     })();
+  }, []);
+
+  // ─── Live clock (updates every second) ───
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveClock(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   // ─── Periodic escalation check (every 5 minutes) ───
@@ -176,6 +259,16 @@ export default function App() {
     }
   }, []);
 
+  const handleUpdateTicket = useCallback((region) => (id, updates) => {
+    const updater = (prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...updates } : t));
+    if (region === 'EU') {
+      setEuTickets(updater);
+    } else {
+      setGlobalTickets(updater);
+    }
+  }, []);
+
   const handleClearNotifications = useCallback(() => {
     setNotifications([]);
   }, []);
@@ -200,11 +293,16 @@ export default function App() {
       <header className="app-header">
         <h1>Ticket Management</h1>
         <div className="header-right">
-          {bucharestTime && (
-            <span className="bucharest-time">
-              Bucharest: {bucharestTime.toLocaleString('en-GB', { timeZone: 'Europe/Bucharest' })}
-            </span>
-          )}
+          <span className="bucharest-time">
+            Bucharest: {liveClock.toLocaleString('en-GB', { timeZone: 'Europe/Bucharest' })}
+          </span>
+          <button
+            className="btn-search-header"
+            onClick={() => { setShowSearch(!showSearch); setSearchQuery(''); }}
+            title="Search tickets"
+          >
+            🔍
+          </button>
           <button
             className={`btn-notifications ${unreadCount > 0 ? 'has-unread' : ''}`}
             onClick={() => setShowNotifications(!showNotifications)}
@@ -215,23 +313,43 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        <TicketForm onAddTicket={handleAddTicket} />
-
         <div className="lists-container">
           <TicketList
             title="EU"
             tickets={euTickets}
             onDeleteTicket={handleDeleteTicket('EU')}
             onUpdateStatus={handleUpdateStatus('EU')}
+            onUpdateTicket={handleUpdateTicket('EU')}
+            onAddClick={() => setShowFormForRegion('EU')}
           />
           <TicketList
             title="Global"
             tickets={globalTickets}
             onDeleteTicket={handleDeleteTicket('Global')}
             onUpdateStatus={handleUpdateStatus('Global')}
+            onUpdateTicket={handleUpdateTicket('Global')}
+            onAddClick={() => setShowFormForRegion('Global')}
           />
         </div>
       </main>
+
+      {showFormForRegion && (
+        <TicketForm
+          region={showFormForRegion}
+          onAddTicket={handleAddTicket}
+          onClose={() => setShowFormForRegion(null)}
+        />
+      )}
+
+      {showSearch && (
+        <SearchOverlay
+          query={searchQuery}
+          setQuery={setSearchQuery}
+          euTickets={euTickets}
+          globalTickets={globalTickets}
+          onClose={() => setShowSearch(false)}
+        />
+      )}
 
       {showNotifications && (
         <div className="notifications-overlay">

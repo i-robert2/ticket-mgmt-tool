@@ -1,19 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { STATUSES, SEVERITIES } from './ticketUtils.js';
 
-const initialForm = {
-  ticketNumber: '',
-  title: '',
-  label: '',
-  lastModified: '',
-  severity: 'Medium',
-  status: 'Pending Initial Contact',
-  region: 'EU',
-};
-
-export default function TicketForm({ onAddTicket }) {
-  const [form, setForm] = useState(initialForm);
+export default function TicketForm({ onAddTicket, onClose, region }) {
+  const [form, setForm] = useState({
+    ticketNumber: '',
+    title: '',
+    label: '',
+    lastModified: '',
+    severity: 'Medium',
+    status: 'Pending Initial Contact',
+    region: region || 'EU',
+  });
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    setForm((f) => ({ ...f, region: region || 'EU' }));
+  }, [region]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -33,24 +35,21 @@ export default function TicketForm({ onAddTicket }) {
       warningTrackingStart: new Date().toISOString(),
       lastModified: form.lastModified || new Date().toISOString(),
     });
-    setForm(initialForm);
+    onClose();
   };
 
   return (
-    <form className="ticket-form" onSubmit={handleSubmit}>
-      <h3>Add New Ticket</h3>
-      {error && <div className="form-error">{error}</div>}
+    <div className="modal-overlay">
+      <div className="modal-backdrop" onClick={onClose} />
+      <form className="ticket-form modal-form" onSubmit={handleSubmit}>
+        <div className="modal-form-header">
+          <h3>Add New {region} Ticket</h3>
+          <button type="button" className="btn-modal-close" onClick={onClose}>✕</button>
+        </div>
+        {error && <div className="form-error">{error}</div>}
 
-      <div className="form-row">
-        <label>
-          Region
-          <select name="region" value={form.region} onChange={handleChange}>
-            <option value="EU">EU</option>
-            <option value="Global">Global</option>
-          </select>
-        </label>
-
-        <label>
+        <div className="form-row">
+          <label>
           Ticket Number
           <input
             type="text"
@@ -118,7 +117,8 @@ export default function TicketForm({ onAddTicket }) {
         </label>
       </div>
 
-      <button type="submit" className="btn-primary">Add Ticket</button>
-    </form>
+        <button type="submit" className="btn-primary">Add Ticket</button>
+      </form>
+    </div>
   );
 }
