@@ -249,6 +249,7 @@ export default function App() {
         return {
           ...t,
           status: newStatus,
+          lastModified: new Date().toISOString(),
           warningTrackingStart: new Date().toISOString(),
         };
       });
