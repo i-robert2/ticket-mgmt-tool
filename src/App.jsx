@@ -108,7 +108,26 @@ export default function App() {
   const [liveClock, setLiveClock] = useState(new Date());
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [toasts, setToasts] = useState([]);
   const initialized = useRef(false);
+  const euTicketsRef = useRef(euTickets);
+  const globalTicketsRef = useRef(globalTickets);
+
+  // Keep refs in sync with state
+  useEffect(() => { euTicketsRef.current = euTickets; }, [euTickets]);
+  useEffect(() => { globalTicketsRef.current = globalTickets; }, [globalTickets]);
+
+  // ─── Show a temporary toast card for new notifications ───
+  const showToast = useCallback((notifs) => {
+    const newToasts = notifs.map((n) => ({ ...n, toastId: Date.now() + Math.random() }));
+    setToasts((prev) => [...newToasts, ...prev]);
+    // Auto-dismiss each toast after 6 seconds
+    newToasts.forEach((t) => {
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((x) => x.toastId !== t.toastId));
+      }, 6000);
+    });
+  }, []);
 
   // ─── Load persisted data & run escalation check on startup ───
   useEffect(() => {
@@ -135,8 +154,8 @@ export default function App() {
             if (result.notifications.length > 0) {
               newNotifs.push(...result.notifications);
             }
-            if (result.status !== t.status) {
-              return { ...t, status: result.status };
+            if (result.status !== t.status || result.preWarningStatus !== t.preWarningStatus) {
+              return { ...t, status: result.status, preWarningStatus: result.preWarningStatus };
             }
             return t;
           });
@@ -154,9 +173,10 @@ export default function App() {
         setGlobalTickets(global);
         setNotifications(notifs);
 
-        // If there were new notifications from escalation, show the panel
-        if (euResult.newNotifs.length > 0 || globalResult.newNotifs.length > 0) {
-          setShowNotifications(true);
+        // If there were new notifications from escalation, show toast cards
+        const allNewNotifs = [...euResult.newNotifs, ...globalResult.newNotifs];
+        if (allNewNotifs.length > 0) {
+          showToast(allNewNotifs);
         }
 
         // Persist updated state
@@ -180,23 +200,17 @@ export default function App() {
       const now = await fetchBucharestTime();
       setBucharestTime(now);
 
-      setEuTickets((prev) => {
-        const result = processForState(prev, now);
-        if (result.newNotifs.length > 0) {
-          setNotifications((n) => [...result.newNotifs, ...n]);
-          setShowNotifications(true);
-        }
-        return result.updated;
-      });
+      const euResult = processForState(euTicketsRef.current, now);
+      const globalResult = processForState(globalTicketsRef.current, now);
 
-      setGlobalTickets((prev) => {
-        const result = processForState(prev, now);
-        if (result.newNotifs.length > 0) {
-          setNotifications((n) => [...result.newNotifs, ...n]);
-          setShowNotifications(true);
-        }
-        return result.updated;
-      });
+      setEuTickets(euResult.updated);
+      setGlobalTickets(globalResult.updated);
+
+      const allNewNotifs = [...euResult.newNotifs, ...globalResult.newNotifs];
+      if (allNewNotifs.length > 0) {
+        setNotifications((n) => [...allNewNotifs, ...n]);
+        showToast(allNewNotifs);
+      }
     }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
@@ -209,8 +223,8 @@ export default function App() {
       if (result.notifications.length > 0) {
         newNotifs.push(...result.notifications);
       }
-      if (result.status !== t.status) {
-        return { ...t, status: result.status };
+      if (result.status !== t.status || result.preWarningStatus !== t.preWarningStatus) {
+        return { ...t, status: result.status, preWarningStatus: result.preWarningStatus };
       }
       return t;
     });
@@ -245,13 +259,20 @@ export default function App() {
     const updater = (prev) =>
       prev.map((t) => {
         if (t.id !== id) return t;
-        // Reset warning tracking when manually changing status
-        return {
+        const now = new Date().toISOString();
+        const updates = {
           ...t,
           status: newStatus,
-          lastModified: new Date().toISOString(),
-          warningTrackingStart: new Date().toISOString(),
+          lastModified: now,
+          warningTrackingStart: now,
         };
+        // Record timestamp when entering "Warning X Sent" statuses
+        if (newStatus === 'Warning 1 Sent') {
+          updates.warning1SentAt = now;
+        } else if (newStatus === 'Warning 2 Sent') {
+          updates.warning2SentAt = now;
+        }
+        return updates;
       });
     if (region === 'EU') {
       setEuTickets(updater);
@@ -260,13 +281,50 @@ export default function App() {
     }
   }, []);
 
-  const handleUpdateTicket = useCallback((region) => (id, updates) => {
+  const handleUpdateTicket = useCallback((region) => async (id, updates) => {
     const updater = (prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...updates } : t));
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        const merged = { ...t, ...updates };
+        // When lastModified is edited on a warning-sent ticket, sync the
+        // corresponding warningXSentAt so the escalation timer uses the new date.
+        if (updates.lastModified) {
+          if (t.status === 'Warning 1 Sent') {
+            merged.warning1SentAt = updates.lastModified;
+          } else if (t.status === 'Warning 2 Sent') {
+            merged.warning2SentAt = updates.lastModified;
+          }
+          merged.warningTrackingStart = updates.lastModified;
+        }
+        return merged;
+      });
     if (region === 'EU') {
       setEuTickets(updater);
     } else {
       setGlobalTickets(updater);
+    }
+
+    // If lastModified was edited, run an immediate escalation check so the
+    // status updates right away instead of waiting for the 5-min interval.
+    if (updates.lastModified) {
+      const now = await fetchBucharestTime();
+      setBucharestTime(now);
+
+      // Use a short delay to let the ticket update state settle before
+      // reading the refs for the escalation check.
+      await new Promise((r) => setTimeout(r, 50));
+
+      const euResult = processForState(euTicketsRef.current, now);
+      const globalResult = processForState(globalTicketsRef.current, now);
+
+      setEuTickets(euResult.updated);
+      setGlobalTickets(globalResult.updated);
+
+      const editNewNotifs = [...euResult.newNotifs, ...globalResult.newNotifs];
+      if (editNewNotifs.length > 0) {
+        setNotifications((n) => [...editNewNotifs, ...n]);
+        showToast(editNewNotifs);
+      }
     }
   }, []);
 
@@ -276,6 +334,19 @@ export default function App() {
 
   const handleDismissNotification = useCallback((id) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
+  // Mark all notifications as read when the panel is opened
+  const toggleNotifications = useCallback(() => {
+    setShowNotifications((prev) => {
+      if (!prev) {
+        // Opening the panel: mark all as read
+        setNotifications((notifs) =>
+          notifs.map((n) => (n.read ? n : { ...n, read: true }))
+        );
+      }
+      return !prev;
+    });
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -305,10 +376,10 @@ export default function App() {
             🔍
           </button>
           <button
-            className={`btn-notifications ${unreadCount > 0 ? 'has-unread' : ''}`}
-            onClick={() => setShowNotifications(!showNotifications)}
+            className={`btn-notifications ${notifications.length > 0 ? 'has-unread' : ''}`}
+            onClick={toggleNotifications}
           >
-            🔔 {unreadCount > 0 && <span className="badge">{unreadCount}</span>}
+            🔔 {notifications.length > 0 && <span className="badge">{notifications.length}</span>}
           </button>
         </div>
       </header>
@@ -360,6 +431,25 @@ export default function App() {
             onClear={handleClearNotifications}
             onDismiss={handleDismissNotification}
           />
+        </div>
+      )}
+
+      {/* Toast notification cards */}
+      {toasts.length > 0 && (
+        <div className="toast-container">
+          {toasts.map((t) => (
+            <div key={t.toastId} className="toast-card">
+              <div className="toast-message">{t.message}</div>
+              <div className="toast-meta">
+                <span className="notif-region">{t.region}</span>
+                <span className="notif-time">{new Date(t.timestamp).toLocaleString()}</span>
+              </div>
+              <button
+                className="btn-dismiss"
+                onClick={() => setToasts((prev) => prev.filter((x) => x.toastId !== t.toastId))}
+              >✕</button>
+            </div>
+          ))}
         </div>
       )}
     </div>

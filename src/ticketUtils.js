@@ -5,6 +5,9 @@ export const STATUSES = [
   'Pending Warning 3',
   'Pending Warning 2',
   'Pending Warning 1',
+  'Warning 3 Sent',
+  'Warning 2 Sent',
+  'Warning 1 Sent',
   'In Progress Engineering',
   'Pending Customer Response',
 ];
@@ -16,6 +19,9 @@ export const STATUS_COLORS = {
   'Pending Warning 1': '#e74c3c',
   'Pending Warning 2': '#e74c3c',
   'Pending Warning 3': '#e74c3c',
+  'Warning 1 Sent': '#3498db',
+  'Warning 2 Sent': '#3498db',
+  'Warning 3 Sent': '#3498db',
   'In Progress Engineering': '#e67e22',
   'Pending Customer Response': '#3498db',
 };
@@ -44,14 +50,16 @@ export function addBusinessDays(startDate, days) {
 
 /**
  * Count business days between two dates (exclusive of start, inclusive of end).
+ * Accounts for time-of-day: a day only counts if the full period has elapsed.
  */
 export function countBusinessDays(startDate, endDate) {
   const start = new Date(startDate);
   const end = new Date(endDate);
   let count = 0;
   const current = new Date(start);
-  while (current < end) {
+  while (true) {
     current.setDate(current.getDate() + 1);
+    if (current > end) break;
     const dow = current.getDay();
     if (dow !== 0 && dow !== 6) {
       count++;
@@ -61,12 +69,17 @@ export function countBusinessDays(startDate, endDate) {
 }
 
 /**
- * Determine if a ticket should escalate to a warning status.
- * Warning 1: after 2 business days from entering a "Pending" non-warning status
- * Warning 2: after 2 more business days (total 4)
- * Warning 3: after 3 more business days (total 7)
+ * Determine if a ticket should escalate (or de-escalate) to a warning status.
  *
- * Returns the new status (or current status if no change), plus any notifications.
+ * Escalation chain:
+ *   Trackable status → (2 biz days from lastModified) → Pending Warning 1
+ *   Warning 1 Sent   → (2 biz days from warning1SentAt) → Pending Warning 2
+ *   Warning 2 Sent   → (3 biz days from warning2SentAt) → Pending Warning 3
+ *
+ * Also de-escalates if a ticket was prematurely set to a warning level
+ * and the elapsed time doesn't warrant it yet.
+ *
+ * Returns { status, notifications, preWarningStatus }.
  */
 export function computeWarningEscalation(ticket, nowDate) {
   const trackableStatuses = [
@@ -76,55 +89,89 @@ export function computeWarningEscalation(ticket, nowDate) {
     'Pending Customer Response',
   ];
 
-  // Only auto-escalate tickets that are in a trackable status or already in a warning
+  const notifications = [];
+  let newStatus = ticket.status;
+
+  // ── Warning 1 Sent → Pending Warning 2 (after 2 biz days from warning1SentAt) ──
+  if (ticket.status === 'Warning 1 Sent') {
+    if (ticket.warning1SentAt) {
+      const daysSinceSent = countBusinessDays(new Date(ticket.warning1SentAt), nowDate);
+      if (daysSinceSent >= 2) {
+        newStatus = 'Pending Warning 2';
+        notifications.push({
+          id: Date.now() + Math.random(),
+          ticketNumber: ticket.ticketNumber,
+          region: ticket.region,
+          message: `Ticket #${ticket.ticketNumber} escalated to Pending Warning 2`,
+          timestamp: nowDate.toISOString(),
+          read: false,
+        });
+      }
+    }
+    return { status: newStatus, notifications, preWarningStatus: ticket.preWarningStatus || null };
+  }
+
+  // ── Warning 2 Sent → Pending Warning 3 (after 3 biz days from warning2SentAt) ──
+  if (ticket.status === 'Warning 2 Sent') {
+    if (ticket.warning2SentAt) {
+      const daysSinceSent = countBusinessDays(new Date(ticket.warning2SentAt), nowDate);
+      if (daysSinceSent >= 3) {
+        newStatus = 'Pending Warning 3';
+        notifications.push({
+          id: Date.now() + Math.random(),
+          ticketNumber: ticket.ticketNumber,
+          region: ticket.region,
+          message: `Ticket #${ticket.ticketNumber} escalated to Pending Warning 3`,
+          timestamp: nowDate.toISOString(),
+          read: false,
+        });
+      }
+    }
+    return { status: newStatus, notifications, preWarningStatus: ticket.preWarningStatus || null };
+  }
+
+  // ── Warning 3 Sent: no further auto-escalation ──
+  if (ticket.status === 'Warning 3 Sent') {
+    return { status: ticket.status, notifications: [], preWarningStatus: ticket.preWarningStatus || null };
+  }
+
+  // ── Trackable statuses & Pending Warning levels ──
   const isTrackable = trackableStatuses.includes(ticket.status) ||
     ticket.status.startsWith('Pending Warning');
 
   if (!isTrackable) return { status: ticket.status, notifications: [] };
 
-  // Use the warningTrackingStart if set, otherwise use createdAt
-  const trackingStart = new Date(ticket.warningTrackingStart || ticket.createdAt);
+  // Use lastModified as the primary tracking date
+  const trackingStart = new Date(ticket.lastModified || ticket.warningTrackingStart || ticket.createdAt);
   const businessDaysElapsed = countBusinessDays(trackingStart, nowDate);
 
-  const notifications = [];
-  let newStatus = ticket.status;
-
-  // Warning thresholds: Warning 1 at 2 days, Warning 2 at 4 days, Warning 3 at 7 days
-  if (businessDaysElapsed >= 7 && ticket.status !== 'Pending Warning 3') {
-    newStatus = 'Pending Warning 3';
-    if (ticket.status !== 'Pending Warning 3') {
+  // Only auto-escalate to Warning 1 from trackable (non-warning) statuses
+  if (businessDaysElapsed >= 2) {
+    if (!ticket.status.startsWith('Pending Warning')) {
+      newStatus = 'Pending Warning 1';
       notifications.push({
         id: Date.now() + Math.random(),
         ticketNumber: ticket.ticketNumber,
         region: ticket.region,
-        message: `Ticket #${ticket.ticketNumber} escalated to Pending Warning 3`,
+        message: `Ticket #${ticket.ticketNumber} escalated to Pending Warning 1`,
         timestamp: nowDate.toISOString(),
         read: false,
       });
     }
-  } else if (businessDaysElapsed >= 4 && businessDaysElapsed < 7 && ticket.status !== 'Pending Warning 2' && ticket.status !== 'Pending Warning 3') {
-    newStatus = 'Pending Warning 2';
-    notifications.push({
-      id: Date.now() + Math.random(),
-      ticketNumber: ticket.ticketNumber,
-      region: ticket.region,
-      message: `Ticket #${ticket.ticketNumber} escalated to Pending Warning 2`,
-      timestamp: nowDate.toISOString(),
-      read: false,
-    });
-  } else if (businessDaysElapsed >= 2 && businessDaysElapsed < 4 && ticket.status !== 'Pending Warning 1' && ticket.status !== 'Pending Warning 2' && ticket.status !== 'Pending Warning 3') {
-    newStatus = 'Pending Warning 1';
-    notifications.push({
-      id: Date.now() + Math.random(),
-      ticketNumber: ticket.ticketNumber,
-      region: ticket.region,
-      message: `Ticket #${ticket.ticketNumber} escalated to Pending Warning 1`,
-      timestamp: nowDate.toISOString(),
-      read: false,
-    });
+  } else {
+    // Less than 2 business days — no warning is warranted
+    if (ticket.status.startsWith('Pending Warning')) {
+      newStatus = ticket.preWarningStatus || 'Pending Customer Response';
+    }
   }
 
-  return { status: newStatus, notifications };
+  // Track the pre-warning status so we can restore it on de-escalation
+  let preWarningStatus = ticket.preWarningStatus || null;
+  if (!ticket.status.startsWith('Pending Warning') && newStatus.startsWith('Pending Warning')) {
+    preWarningStatus = ticket.status;
+  }
+
+  return { status: newStatus, notifications, preWarningStatus };
 }
 
 /**

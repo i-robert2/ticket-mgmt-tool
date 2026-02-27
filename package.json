@@ -9,7 +9,25 @@
     "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
     "build": "vite build",
     "start": "npm run build && electron .",
+    "dist": "vite build && electron-builder --win",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "build": {
+    "appId": "com.ticketmgmt.app",
+    "productName": "Ticket Management",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "dir",
+      "icon": null,
+      "signAndEditExecutable": false
+    }
   },
   "keywords": [],
   "author": "",

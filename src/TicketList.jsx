@@ -176,7 +176,10 @@ export default function TicketList({ title, tickets, onDeleteTicket, onUpdateSta
     : tickets.filter((t) => t.status === filterStatus);
 
   const sorted = [...filtered].sort((a, b) => {
-    return STATUSES.indexOf(a.status) - STATUSES.indexOf(b.status);
+    const statusDiff = STATUSES.indexOf(a.status) - STATUSES.indexOf(b.status);
+    if (statusDiff !== 0) return statusDiff;
+    // Within the same status, most recently modified first
+    return new Date(b.lastModified) - new Date(a.lastModified);
   });
 
   return (

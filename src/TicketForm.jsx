@@ -28,12 +28,15 @@ export default function TicketForm({ onAddTicket, onClose, region }) {
       return;
     }
     setError('');
+    const lastMod = form.lastModified
+      ? new Date(form.lastModified).toISOString()
+      : new Date().toISOString();
     onAddTicket({
       ...form,
       id: Date.now() + Math.random(),
       createdAt: new Date().toISOString(),
-      warningTrackingStart: new Date().toISOString(),
-      lastModified: form.lastModified || new Date().toISOString(),
+      warningTrackingStart: lastMod,
+      lastModified: lastMod,
     });
     onClose();
   };

@@ -48,7 +48,11 @@ Tickets are automatically escalated based on **business days** (Mon–Fri, exclu
 - **Warning 2** — after **2 more business days** (4 total)
 - **Warning 3** — after **3 more business days** (7 total)
 
-Escalations are announced as alerts in a **notifications panel** (🔔).
+Escalations trigger a **toast notification card** that slides in from the top-right corner with the alert details and auto-dismisses after 6 seconds. Full notification history is still accessible via the 🔔 bell icon in the header.
+
+### Smart Ticket Sorting
+- Tickets are sorted by **status priority** (following the defined status order).
+- Within the same status, tickets are sorted by **most recently modified first**, so the tickets closest to the current time appear on top.
 
 ### Live Bucharest Clock
 - Displays current Bucharest time in the header, updating every second.
@@ -117,7 +121,7 @@ ticket-mgmt/
 │   ├── App.jsx                 # Root component, state, search overlay
 │   ├── TicketForm.jsx          # Modal ticket form
 │   ├── TicketList.jsx          # Filterable ticket list with card components
-│   ├── NotificationsPanel.jsx  # Warning escalation alerts panel
+│   ├── NotificationsPanel.jsx  # Notification history panel
 │   ├── ticketUtils.js          # Business logic & helpers
 │   └── styles.css              # Dark-themed styles
 ├── test/
