@@ -22,13 +22,19 @@ Tickets follow a defined status order with color-coded dropdown badges:
 |---|---|
 | Pending Initial Contact | 🔴 Red |
 | In Progress Support | 🔴 Red |
+| Close Case | 🔴 Red |
 | Pending Warning 3 | 🔴 Red |
 | Pending Warning 2 | 🔴 Red |
 | Pending Warning 1 | 🔴 Red |
+| Warning 3 Sent | 🔵 Blue |
+| Warning 2 Sent | 🔵 Blue |
+| Warning 1 Sent | 🔵 Blue |
 | In Progress Engineering | 🟠 Orange |
 | Pending Customer Response | 🔵 Blue |
 
 Status can be changed directly from the ticket card via an inline dropdown.
+
+- **Close Case** is a manual-only status — it is never set or removed automatically.
 
 ### Ticket Search
 - 🔍 Search button in the header bar (between the clock and notifications).
@@ -44,11 +50,22 @@ Status can be changed directly from the ticket card via an inline dropdown.
 ### Automated Warning Escalation
 Tickets are automatically escalated based on **business days** (Mon–Fri, excluding weekends):
 
-- **Warning 1** — after **2 business days** without status change
-- **Warning 2** — after **2 more business days** (4 total)
-- **Warning 3** — after **3 more business days** (7 total)
+| Transition | Trigger |
+|---|---|
+| Trackable status → Pending Warning 1 | 2 business days from `lastModified` |
+| Warning 1 Sent → Pending Warning 2 | 2 business days from `warning1SentAt` |
+| Warning 2 Sent → Pending Warning 3 | 3 business days from `warning2SentAt` |
 
-Escalations trigger a **toast notification card** that slides in from the top-right corner with the alert details and auto-dismisses after 6 seconds. Full notification history is still accessible via the 🔔 bell icon in the header.
+Trackable statuses: Pending Initial Contact, In Progress Support, In Progress Engineering, Pending Customer Response.
+
+**No automatic de-escalation** — once a ticket reaches any Pending Warning status, it stays there until manually changed.
+
+Escalations trigger a **toast notification card** that slides in from the top-right corner with the alert details and auto-dismisses after 6 seconds. Full notification history is accessible via the 🔔 bell icon in the header.
+
+Escalation checks run:
+- **On startup** — catches any tickets that should have escalated while the app was closed (e.g., over a weekend).
+- **Every 5 minutes** — periodic background check using Bucharest time.
+- **Immediately after editing `lastModified`** — so status updates appear right away.
 
 ### Smart Ticket Sorting
 - Tickets are sorted by **status priority** (following the defined status order).
@@ -63,8 +80,13 @@ Escalations trigger a **toast notification card** that slides in from the top-ri
 - Fields: Ticket Number, Title, Label, Last Modified (date/time), Severity, Initial Status.
 - Region is pre-selected based on which list's ＋ button was clicked.
 
+### Notifications
+- **Toast cards** slide in from the top-right for new escalation events and auto-dismiss after 6 seconds.
+- **🔔 Bell icon** with unread badge shows notification count; opening the panel marks all as read.
+- Notifications can be individually dismissed or cleared entirely.
+
 ### Persistent Storage
-All ticket data (including notes and draft status) and notifications are saved to disk (Electron `userData` directory) and restored on next launch.
+All ticket data (including notes, draft status, and warning timestamps) and notifications are saved to disk (Electron `userData` directory) and restored on next launch. In browser mode, data is persisted via `localStorage`.
 
 ---
 
@@ -76,7 +98,7 @@ All ticket data (including notes and draft status) and notifications are saved t
 | Frontend | React 19 |
 | Build Tool | Vite |
 | Styling | CSS (dark theme) |
-| Persistence | JSON file (Electron userData) |
+| Persistence | JSON file (Electron userData) / localStorage (browser) |
 | Time API | WorldTimeAPI |
 
 ---
@@ -125,7 +147,7 @@ ticket-mgmt/
 │   ├── ticketUtils.js          # Business logic & helpers
 │   └── styles.css              # Dark-themed styles
 ├── test/
-│   └── warning-escalation.test.cjs  # 16 unit tests for escalation logic
+│   └── warning-escalation.test.cjs  # 25 unit tests for escalation logic
 ├── index.html
 ├── vite.config.js
 └── package.json
@@ -141,6 +163,7 @@ ticket-mgmt/
 | `npm run dev` | Start Vite dev server + Electron with hot reload |
 | `npm run build` | Build the React frontend only |
 | `npm test` | Run warning escalation unit tests |
+| `npm run dist` | Build and package the app for distribution |
 
 ---
 

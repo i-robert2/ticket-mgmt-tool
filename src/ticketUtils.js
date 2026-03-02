@@ -2,6 +2,7 @@
 export const STATUSES = [
   'Pending Initial Contact',
   'In Progress Support',
+  'Close Case',
   'Pending Warning 3',
   'Pending Warning 2',
   'Pending Warning 1',
@@ -19,6 +20,7 @@ export const STATUS_COLORS = {
   'Pending Warning 1': '#e74c3c',
   'Pending Warning 2': '#e74c3c',
   'Pending Warning 3': '#e74c3c',
+  'Close Case': '#e74c3c',
   'Warning 1 Sent': '#3498db',
   'Warning 2 Sent': '#3498db',
   'Warning 3 Sent': '#3498db',
@@ -157,11 +159,6 @@ export function computeWarningEscalation(ticket, nowDate) {
         timestamp: nowDate.toISOString(),
         read: false,
       });
-    }
-  } else {
-    // Less than 2 business days — no warning is warranted
-    if (ticket.status.startsWith('Pending Warning')) {
-      newStatus = ticket.preWarningStatus || 'Pending Customer Response';
     }
   }
 
