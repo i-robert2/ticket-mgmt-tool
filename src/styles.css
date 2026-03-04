@@ -1083,3 +1083,47 @@ body {
     transform: translateX(0);
   }
 }
+
+/* ─── Countdown timer ─── */
+.status-area {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.countdown-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--bg-hover);
+  color: var(--accent);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+  border: 1px solid var(--accent);
+}
+
+.countdown-badge.countdown-expired {
+  color: #e74c3c;
+  border-color: #e74c3c;
+  opacity: 0.7;
+}
+
+/* Countdown inputs in form */
+.countdown-inputs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.countdown-inputs input {
+  width: 64px;
+  text-align: center;
+}
+
+.countdown-separator {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}

@@ -194,6 +194,52 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  // ─── Countdown timer: notify at 30 minutes remaining ───
+  useEffect(() => {
+    const checkCountdowns = () => {
+      const now = Date.now();
+      const check = (tickets, setTickets, regionLabel) => {
+        let changed = false;
+        const updated = tickets.map((t) => {
+          if (!t.countdownEndTime || t.countdownNotified) return t;
+          const remaining = new Date(t.countdownEndTime).getTime() - now;
+          if (remaining <= 30 * 60 * 1000 && remaining > 0) {
+            changed = true;
+            const notif = {
+              id: Date.now() + Math.random(),
+              message: `⏱ Timer on #${t.ticketNumber} has 30 minutes left!`,
+              region: regionLabel,
+              timestamp: new Date().toISOString(),
+              read: false,
+            };
+            setNotifications((prev) => [notif, ...prev]);
+            showToast([notif]);
+            return { ...t, countdownNotified: true };
+          }
+          if (remaining <= 0 && !t.countdownNotified) {
+            changed = true;
+            const notif = {
+              id: Date.now() + Math.random(),
+              message: `⏱ Timer on #${t.ticketNumber} has expired!`,
+              region: regionLabel,
+              timestamp: new Date().toISOString(),
+              read: false,
+            };
+            setNotifications((prev) => [notif, ...prev]);
+            showToast([notif]);
+            return { ...t, countdownNotified: true };
+          }
+          return t;
+        });
+        if (changed) setTickets(updated);
+      };
+      check(euTicketsRef.current, setEuTickets, 'EU');
+      check(globalTicketsRef.current, setGlobalTickets, 'Global');
+    };
+    const id = setInterval(checkCountdowns, 10000); // check every 10 seconds
+    return () => clearInterval(id);
+  }, [showToast]);
+
   // ─── Periodic escalation check (every 5 minutes) ───
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -265,6 +311,9 @@ export default function App() {
           status: newStatus,
           lastModified: now,
           warningTrackingStart: now,
+          // Clear countdown timer when status is changed manually
+          countdownEndTime: null,
+          countdownNotified: false,
         };
         // Record timestamp when entering "Warning X Sent" statuses
         if (newStatus === 'Warning 1 Sent') {

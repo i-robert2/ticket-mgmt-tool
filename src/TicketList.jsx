@@ -1,10 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { STATUSES, STATUS_COLORS } from './ticketUtils.js';
 
 function TicketCard({ ticket, onDeleteTicket, onUpdateStatus, onUpdateTicket }) {
   const [noteExpanded, setNoteExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editingDate, setEditingDate] = useState(false);
+  const [countdownText, setCountdownText] = useState('');
+
+  // Live countdown ticker
+  useEffect(() => {
+    if (!ticket.countdownEndTime) { setCountdownText(''); return; }
+    const tick = () => {
+      const remaining = new Date(ticket.countdownEndTime).getTime() - Date.now();
+      if (remaining <= 0) { setCountdownText('00:00:00'); return; }
+      const h = Math.floor(remaining / 3600000);
+      const m = Math.floor((remaining % 3600000) / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      setCountdownText(
+        `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+      );
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [ticket.countdownEndTime]);
 
   const hasNote = ticket.hasNote;
 
@@ -29,6 +48,12 @@ function TicketCard({ ticket, onDeleteTicket, onUpdateStatus, onUpdateTicket }) 
     <div className="ticket-card" id={`ticket-${ticket.id}`}>
       <div className="ticket-card-header">
         <span className="ticket-number">#{ticket.ticketNumber}</span>
+        <div className="status-area">
+          {ticket.countdownEndTime && countdownText && (
+            <span className={`countdown-badge${countdownText === '00:00:00' ? ' countdown-expired' : ''}`}>
+              ⏱ {countdownText}
+            </span>
+          )}
         <div className="status-dropdown-wrapper" style={{ backgroundColor: STATUS_COLORS[ticket.status] || '#999' }}>
           <select
             className="ticket-status-dropdown"
@@ -40,6 +65,7 @@ function TicketCard({ ticket, onDeleteTicket, onUpdateStatus, onUpdateTicket }) 
             ))}
           </select>
           <span className="dropdown-arrow">▾</span>
+        </div>
         </div>
       </div>
       <div className="ticket-card-body">

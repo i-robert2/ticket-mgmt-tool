@@ -75,9 +75,17 @@ Escalation checks run:
 - Displays current Bucharest time in the header, updating every second.
 - Time is fetched from [WorldTimeAPI](https://worldtimeapi.org/api/timezone/Europe/Bucharest) on startup for accuracy; falls back to local system time if unreachable.
 
+### Countdown Timer
+- When creating a ticket with status **Pending Initial Contact**, an optional **countdown timer** input appears (hours + minutes).
+- The countdown is displayed as a live `HH:MM:SS` badge (⏱) on the ticket card, **to the left of the status dropdown**.
+- A **notification is sent when 30 minutes remain** on the countdown (toast + bell icon).
+- If the timer reaches zero, an expiration notification is sent.
+- The countdown **disappears automatically** when the ticket's status is manually changed to any other value.
+
 ### Modal Ticket Form
 - Add tickets via a **popup modal** triggered by the ＋ button on each list.
 - Fields: Ticket Number, Title, Label, Last Modified (date/time), Severity, Initial Status.
+- When **Pending Initial Contact** is selected, an additional **Countdown Timer** field (hours / minutes) appears.
 - Region is pre-selected based on which list's ＋ button was clicked.
 
 ### Notifications
@@ -164,6 +172,36 @@ ticket-mgmt/
 | `npm run build` | Build the React frontend only |
 | `npm test` | Run warning escalation unit tests |
 | `npm run dist` | Build and package the app for distribution |
+
+---
+
+## Building the .exe & Pinning to Taskbar
+
+### 1. Build the distributable
+
+```bash
+npm run dist
+```
+
+This runs `vite build` followed by `electron-builder --win` and outputs the packaged app into the `release/win-unpacked/` directory.
+
+### 2. Locate the executable
+
+After the build completes, find the `.exe` at:
+
+```
+release/win-unpacked/Ticket Management.exe
+```
+
+### 3. Pin to Taskbar
+
+1. Open the `release/win-unpacked/` folder in File Explorer.
+2. Right-click **Ticket Management.exe**.
+3. Select **Pin to taskbar**.
+
+Alternatively, double-click the `.exe` to launch it first, then right-click the app icon on the taskbar and choose **Pin to taskbar**.
+
+> **Tip:** You can also create a desktop shortcut by right-clicking the `.exe` → **Send to** → **Desktop (create shortcut)**.
 
 ---
 

@@ -2,6 +2,10 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Suppress Chromium background SSL errors (CRL/Safe Browsing checks on restricted networks)
+app.commandLine.appendSwitch('disable-features', 'CertificateRevocationCheckingRequiredByPolicy');
+app.commandLine.appendSwitch('ignore-certificate-errors');
+
 const DATA_PATH = path.join(app.getPath('userData'), 'tickets.json');
 
 function loadData() {

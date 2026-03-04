@@ -10,6 +10,8 @@ export default function TicketForm({ onAddTicket, onClose, region }) {
     severity: 'Medium',
     status: 'Pending Initial Contact',
     region: region || 'EU',
+    countdownHours: '',
+    countdownMinutes: '',
   });
   const [error, setError] = useState('');
 
@@ -31,12 +33,21 @@ export default function TicketForm({ onAddTicket, onClose, region }) {
     const lastMod = form.lastModified
       ? new Date(form.lastModified).toISOString()
       : new Date().toISOString();
+    const hours = parseInt(form.countdownHours, 10) || 0;
+    const minutes = parseInt(form.countdownMinutes, 10) || 0;
+    const totalMs = (hours * 60 + minutes) * 60 * 1000;
+    const countdownEndTime = (form.status === 'Pending Initial Contact' && totalMs > 0)
+      ? new Date(Date.now() + totalMs).toISOString()
+      : null;
+
     onAddTicket({
       ...form,
       id: Date.now() + Math.random(),
       createdAt: new Date().toISOString(),
       warningTrackingStart: lastMod,
       lastModified: lastMod,
+      countdownEndTime,
+      countdownNotified: false,
     });
     onClose();
   };
@@ -119,6 +130,36 @@ export default function TicketForm({ onAddTicket, onClose, region }) {
           </select>
         </label>
       </div>
+
+      {form.status === 'Pending Initial Contact' && (
+        <div className="form-row countdown-row">
+          <label>
+            Countdown Timer (optional)
+            <div className="countdown-inputs">
+              <input
+                type="number"
+                name="countdownHours"
+                value={form.countdownHours}
+                onChange={handleChange}
+                placeholder="Hours"
+                min="0"
+                max="999"
+              />
+              <span className="countdown-separator">h</span>
+              <input
+                type="number"
+                name="countdownMinutes"
+                value={form.countdownMinutes}
+                onChange={handleChange}
+                placeholder="Min"
+                min="0"
+                max="59"
+              />
+              <span className="countdown-separator">m</span>
+            </div>
+          </label>
+        </div>
+      )}
 
         <button type="submit" className="btn-primary">Add Ticket</button>
       </form>
