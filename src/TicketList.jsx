@@ -83,7 +83,7 @@ function TicketCard({ ticket, onDeleteTicket, onUpdateStatus, onUpdateTicket }) 
               onClick={() => setEditingDate(true)}
               title="Click to edit last modified date"
             >
-              Last Modified: {new Date(ticket.lastModified).toLocaleString()}
+              Last Modified: {new Date(ticket.lastModified).toLocaleString('en-GB')}
               <span className="date-edit-icon">✎</span>
             </span>
           )}
