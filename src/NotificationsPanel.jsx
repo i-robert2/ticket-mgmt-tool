@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function NotificationsPanel({ notifications, onClear, onDismiss }) {
+export default function NotificationsPanel({ notifications, onClear, onDismiss, onClickNotification }) {
   return (
     <div className="notifications-panel">
       <div className="notifications-header">
@@ -19,13 +19,18 @@ export default function NotificationsPanel({ notifications, onClear, onDismiss }
           <p className="empty-msg">No notifications.</p>
         ) : (
           notifications.map((n) => (
-            <div key={n.id} className={`notif-item ${n.read ? 'read' : 'unread'}`}>
+            <div
+              key={n.id}
+              className={`notif-item ${n.read ? 'read' : 'unread'}`}
+              onClick={() => onClickNotification && onClickNotification(n)}
+              style={{ cursor: 'pointer' }}
+            >
               <div className="notif-message">{n.message}</div>
               <div className="notif-meta">
                 <span className="notif-region">{n.region}</span>
                 <span className="notif-time">{new Date(n.timestamp).toLocaleString()}</span>
               </div>
-              <button className="btn-dismiss" onClick={() => onDismiss(n.id)}>✕</button>
+              <button className="btn-dismiss" onClick={(e) => { e.stopPropagation(); onDismiss(n.id); }}>✕</button>
             </div>
           ))
         )}

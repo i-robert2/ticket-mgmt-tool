@@ -67,6 +67,12 @@ Escalation checks run:
 - **Every 5 minutes** — periodic background check using Bucharest time.
 - **Immediately after editing `lastModified`** — so status updates appear right away.
 
+### Pending Warning 3 Day-of Alert
+- On startup, the app checks if any **Warning 2 Sent** ticket is scheduled to escalate to **Pending Warning 3** during the current Bucharest calendar day.
+- If so, an informational ⚠️ notification is created **without changing the ticket's status**.
+- The notification persists in the notification panel until manually dismissed.
+- Duplicate alerts are prevented — reopening the app on the same day won't create duplicate notifications.
+
 ### Smart Ticket Sorting
 - Tickets are sorted by **status priority** (following the defined status order).
 - Within the same status, tickets are sorted by **most recently modified first**, so the tickets closest to the current time appear on top.
@@ -91,6 +97,7 @@ Escalation checks run:
 ### Notifications
 - **Toast cards** slide in from the top-right for new escalation events and auto-dismiss after 6 seconds.
 - **🔔 Bell icon** with unread badge shows notification count; opening the panel marks all as read.
+- **Click any notification** to close the panel and scroll directly to the referenced ticket with a highlight animation.
 - Notifications can be individually dismissed or cleared entirely.
 
 ### Persistent Storage

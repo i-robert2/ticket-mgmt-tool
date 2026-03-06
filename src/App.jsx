@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import TicketForm from './TicketForm.jsx';
 import TicketList from './TicketList.jsx';
 import NotificationsPanel from './NotificationsPanel.jsx';
-import { STATUSES, STATUS_COLORS, computeWarningEscalation, fetchBucharestTime } from './ticketUtils.js';
+import { STATUSES, STATUS_COLORS, computeWarningEscalation, computePW3DayWarnings, fetchBucharestTime } from './ticketUtils.js';
 
 const EMPTY_DATA = { eu: [], global: [], notifications: [] };
 
@@ -169,12 +169,29 @@ export default function App() {
         global = globalResult.updated;
         notifs = [...euResult.newNotifs, ...globalResult.newNotifs, ...notifs];
 
+        // 4. Check for tickets that will reach Pending Warning 3 today
+        //    (informational only — no status change)
+        const euPW3Warnings = computePW3DayWarnings(eu, now, 'EU');
+        const globalPW3Warnings = computePW3DayWarnings(global, now, 'Global');
+
+        // Deduplicate: skip if a PW3 pre-warning already exists for same ticket + date
+        const existingPW3Keys = new Set(
+          notifs.filter((n) => n.isPW3PreWarning).map((n) => `${n.ticketNumber}-${n.pw3WarningDate}`)
+        );
+        const newPW3Warnings = [...euPW3Warnings, ...globalPW3Warnings].filter(
+          (n) => !existingPW3Keys.has(`${n.ticketNumber}-${n.pw3WarningDate}`)
+        );
+
+        if (newPW3Warnings.length > 0) {
+          notifs = [...newPW3Warnings, ...notifs];
+        }
+
         setEuTickets(eu);
         setGlobalTickets(global);
         setNotifications(notifs);
 
-        // If there were new notifications from escalation, show toast cards
-        const allNewNotifs = [...euResult.newNotifs, ...globalResult.newNotifs];
+        // If there were new notifications from escalation or PW3 warnings, show toast cards
+        const allNewNotifs = [...euResult.newNotifs, ...globalResult.newNotifs, ...newPW3Warnings];
         if (allNewNotifs.length > 0) {
           showToast(allNewNotifs);
         }
@@ -479,6 +496,17 @@ export default function App() {
             notifications={notifications}
             onClear={handleClearNotifications}
             onDismiss={handleDismissNotification}
+            onClickNotification={(n) => {
+              const allTickets = [
+                ...euTickets.map((t) => ({ ...t, _region: 'EU' })),
+                ...globalTickets.map((t) => ({ ...t, _region: 'Global' })),
+              ];
+              const ticket = allTickets.find((t) => t.ticketNumber === n.ticketNumber);
+              if (ticket) {
+                setShowNotifications(false);
+                setTimeout(() => scrollToTicket(ticket.id), 100);
+              }
+            }}
           />
         </div>
       )}

@@ -172,6 +172,42 @@ export function computeWarningEscalation(ticket, nowDate) {
 }
 
 /**
+ * Check if any "Warning 2 Sent" tickets will escalate to Pending Warning 3
+ * during the current Bucharest calendar day. Returns informational notifications
+ * only — no status changes are made.
+ *
+ * Deduplication is handled by the caller using the `pw3WarningDate` field.
+ */
+export function computePW3DayWarnings(tickets, nowDate, regionLabel) {
+  const notifications = [];
+  const todayBucharest = nowDate.toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' });
+
+  for (const ticket of tickets) {
+    if (ticket.status !== 'Warning 2 Sent' || !ticket.warning2SentAt) continue;
+
+    // The escalation fires when countBusinessDays(warning2SentAt, now) >= 3.
+    // That threshold is crossed on the 3rd business day at the same time-of-day.
+    const escalationDate = addBusinessDays(new Date(ticket.warning2SentAt), 3);
+    const escalationDayBucharest = escalationDate.toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' });
+
+    if (escalationDayBucharest === todayBucharest) {
+      notifications.push({
+        id: Date.now() + Math.random(),
+        ticketNumber: ticket.ticketNumber,
+        region: regionLabel,
+        message: `\u26A0\uFE0F Ticket #${ticket.ticketNumber} will escalate to Pending Warning 3 today`,
+        timestamp: nowDate.toISOString(),
+        read: false,
+        isPW3PreWarning: true,
+        pw3WarningDate: todayBucharest,
+      });
+    }
+  }
+
+  return notifications;
+}
+
+/**
  * Fetch current Bucharest time from WorldTimeAPI.
  * Falls back to local system time if the API is unreachable.
  */
