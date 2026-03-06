@@ -67,9 +67,16 @@ Escalation checks run:
 - **Every 5 minutes** — periodic background check using Bucharest time.
 - **Immediately after editing `lastModified`** — so status updates appear right away.
 
-### Pending Warning 3 Day-of Alert
-- On startup, the app checks if any **Warning 2 Sent** ticket is scheduled to escalate to **Pending Warning 3** during the current Bucharest calendar day.
-- If so, an informational ⚠️ notification is created **without changing the ticket's status**.
+### Day-of Escalation Alerts
+On startup, the app checks if any ticket is scheduled to escalate to a new warning level during the current Bucharest calendar day:
+
+| Current Status | Alert |
+|---|---|
+| Trackable status (e.g. Pending Customer Response) | ⚠️ Will escalate to **Pending Warning 1** today |
+| Warning 1 Sent | ⚠️ Will escalate to **Pending Warning 2** today |
+| Warning 2 Sent | ⚠️ Will escalate to **Pending Warning 3** today |
+
+- Informational only — **no status change** is made.
 - The notification persists in the notification panel until manually dismissed.
 - Duplicate alerts are prevented — reopening the app on the same day won't create duplicate notifications.
 
@@ -162,7 +169,7 @@ ticket-mgmt/
 │   ├── ticketUtils.js          # Business logic & helpers
 │   └── styles.css              # Dark-themed styles
 ├── test/
-│   └── warning-escalation.test.cjs  # 25 unit tests for escalation logic
+│   └── warning-escalation.test.cjs  # 35 unit tests for escalation logic
 ├── index.html
 ├── vite.config.js
 └── package.json

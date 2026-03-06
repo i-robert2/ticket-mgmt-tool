@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import TicketForm from './TicketForm.jsx';
 import TicketList from './TicketList.jsx';
 import NotificationsPanel from './NotificationsPanel.jsx';
-import { STATUSES, STATUS_COLORS, computeWarningEscalation, computePW3DayWarnings, fetchBucharestTime } from './ticketUtils.js';
+import { STATUSES, STATUS_COLORS, computeWarningEscalation, computePW1DayWarnings, computePW2DayWarnings, computePW3DayWarnings, fetchBucharestTime } from './ticketUtils.js';
 
 const EMPTY_DATA = { eu: [], global: [], notifications: [] };
 
@@ -169,12 +169,28 @@ export default function App() {
         global = globalResult.updated;
         notifs = [...euResult.newNotifs, ...globalResult.newNotifs, ...notifs];
 
-        // 4. Check for tickets that will reach Pending Warning 3 today
+        // 4. Check for tickets that will reach Pending Warning 1/2/3 today
         //    (informational only — no status change)
+        const euPW1Warnings = computePW1DayWarnings(eu, now, 'EU');
+        const globalPW1Warnings = computePW1DayWarnings(global, now, 'Global');
+        const euPW2Warnings = computePW2DayWarnings(eu, now, 'EU');
+        const globalPW2Warnings = computePW2DayWarnings(global, now, 'Global');
         const euPW3Warnings = computePW3DayWarnings(eu, now, 'EU');
         const globalPW3Warnings = computePW3DayWarnings(global, now, 'Global');
 
-        // Deduplicate: skip if a PW3 pre-warning already exists for same ticket + date
+        // Deduplicate: skip if a pre-warning already exists for same ticket + date
+        const existingPW1Keys = new Set(
+          notifs.filter((n) => n.isPW1PreWarning).map((n) => `${n.ticketNumber}-${n.pw1WarningDate}`)
+        );
+        const newPW1Warnings = [...euPW1Warnings, ...globalPW1Warnings].filter(
+          (n) => !existingPW1Keys.has(`${n.ticketNumber}-${n.pw1WarningDate}`)
+        );
+        const existingPW2Keys = new Set(
+          notifs.filter((n) => n.isPW2PreWarning).map((n) => `${n.ticketNumber}-${n.pw2WarningDate}`)
+        );
+        const newPW2Warnings = [...euPW2Warnings, ...globalPW2Warnings].filter(
+          (n) => !existingPW2Keys.has(`${n.ticketNumber}-${n.pw2WarningDate}`)
+        );
         const existingPW3Keys = new Set(
           notifs.filter((n) => n.isPW3PreWarning).map((n) => `${n.ticketNumber}-${n.pw3WarningDate}`)
         );
@@ -182,16 +198,17 @@ export default function App() {
           (n) => !existingPW3Keys.has(`${n.ticketNumber}-${n.pw3WarningDate}`)
         );
 
-        if (newPW3Warnings.length > 0) {
-          notifs = [...newPW3Warnings, ...notifs];
+        const allDayWarnings = [...newPW1Warnings, ...newPW2Warnings, ...newPW3Warnings];
+        if (allDayWarnings.length > 0) {
+          notifs = [...allDayWarnings, ...notifs];
         }
 
         setEuTickets(eu);
         setGlobalTickets(global);
         setNotifications(notifs);
 
-        // If there were new notifications from escalation or PW3 warnings, show toast cards
-        const allNewNotifs = [...euResult.newNotifs, ...globalResult.newNotifs, ...newPW3Warnings];
+        // If there were new notifications from escalation or day warnings, show toast cards
+        const allNewNotifs = [...euResult.newNotifs, ...globalResult.newNotifs, ...allDayWarnings];
         if (allNewNotifs.length > 0) {
           showToast(allNewNotifs);
         }

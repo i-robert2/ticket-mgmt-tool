@@ -172,6 +172,82 @@ export function computeWarningEscalation(ticket, nowDate) {
 }
 
 /**
+ * Check if any tickets in trackable statuses will escalate to Pending Warning 1
+ * during the current Bucharest calendar day. Returns informational notifications
+ * only — no status changes are made.
+ *
+ * Deduplication is handled by the caller using the `pw1WarningDate` field.
+ */
+export function computePW1DayWarnings(tickets, nowDate, regionLabel) {
+  const trackableStatuses = [
+    'Pending Initial Contact',
+    'In Progress Support',
+    'In Progress Engineering',
+    'Pending Customer Response',
+  ];
+  const notifications = [];
+  const todayBucharest = nowDate.toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' });
+
+  for (const ticket of tickets) {
+    if (!trackableStatuses.includes(ticket.status)) continue;
+    const trackingStart = ticket.lastModified || ticket.warningTrackingStart || ticket.createdAt;
+    if (!trackingStart) continue;
+
+    const escalationDate = addBusinessDays(new Date(trackingStart), 2);
+    const escalationDayBucharest = escalationDate.toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' });
+
+    if (escalationDayBucharest === todayBucharest) {
+      notifications.push({
+        id: Date.now() + Math.random(),
+        ticketNumber: ticket.ticketNumber,
+        region: regionLabel,
+        message: `\u26A0\uFE0F Ticket #${ticket.ticketNumber} will escalate to Pending Warning 1 today`,
+        timestamp: nowDate.toISOString(),
+        read: false,
+        isPW1PreWarning: true,
+        pw1WarningDate: todayBucharest,
+      });
+    }
+  }
+
+  return notifications;
+}
+
+/**
+ * Check if any "Warning 1 Sent" tickets will escalate to Pending Warning 2
+ * during the current Bucharest calendar day. Returns informational notifications
+ * only — no status changes are made.
+ *
+ * Deduplication is handled by the caller using the `pw2WarningDate` field.
+ */
+export function computePW2DayWarnings(tickets, nowDate, regionLabel) {
+  const notifications = [];
+  const todayBucharest = nowDate.toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' });
+
+  for (const ticket of tickets) {
+    if (ticket.status !== 'Warning 1 Sent' || !ticket.warning1SentAt) continue;
+
+    const escalationDate = addBusinessDays(new Date(ticket.warning1SentAt), 2);
+    const escalationDayBucharest = escalationDate.toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' });
+
+    if (escalationDayBucharest === todayBucharest) {
+      notifications.push({
+        id: Date.now() + Math.random(),
+        ticketNumber: ticket.ticketNumber,
+        region: regionLabel,
+        message: `\u26A0\uFE0F Ticket #${ticket.ticketNumber} will escalate to Pending Warning 2 today`,
+        timestamp: nowDate.toISOString(),
+        read: false,
+        isPW2PreWarning: true,
+        pw2WarningDate: todayBucharest,
+      });
+    }
+  }
+
+  return notifications;
+}
+
+/**
  * Check if any "Warning 2 Sent" tickets will escalate to Pending Warning 3
  * during the current Bucharest calendar day. Returns informational notifications
  * only — no status changes are made.
