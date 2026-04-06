@@ -222,3 +222,9 @@ Alternatively, double-click the `.exe` to launch it first, then right-click the 
 ## License
 
 ISC
+
+---
+
+## Disclaimer
+
+This project was built with AI assistance (GitHub Copilot).
